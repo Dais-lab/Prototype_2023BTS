@@ -1,0 +1,11 @@
+*.pyc
+*.png
+*.jpg
+*.csv
+*.ipynb
+data/*
+temp
+modules/코드모음/*
+*.h5
+*.zip
+**/.DS_Store
