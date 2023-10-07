@@ -7,6 +7,7 @@ import os
 #CPU 사용
 #os.environ["CUDA_VISIBLE_DEVICES"]="-1"
 import tensorflow as tf
+import torch
 from modules.augmentation.Generate_VF import *
 
 def check_IQI(image):
@@ -74,7 +75,7 @@ def find_IQI(image_list):
 
 class ImageContainer:
     def __init__(self, image_path):
-        self.image_path_list = natsorted(glob(os.path.join(image_path, "*")))
+        self.image_path_list = natsorted(glob(os.path.join(image_path, "*")))[:5]
         self.image_list = [cv2.imread(image_path) for image_path in self.image_path_list]
         self.image_list = [cv2.resize(image, (512, 512)) for image in self.image_list]
         #self.image_list = [cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE) for image in self.image_list]
@@ -107,17 +108,28 @@ class ImageContainer:
             self.image_list = [cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX) for image in self.image_list]
         elif preprocess == "CLAHE":
             clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-            self.image_list = [clahe.apply(image) for image in self.image_list]
+            self.image_list = [clahe.apply(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)) for image in self.image_list]
         elif preprocess == "EqualizeHist":
             self.image_list = [cv2.equalizeHist(image) for image in self.image_list]
+
   
-    def inference(self, model_path):
+    def inference_tensorflow(self, model_path):
         self.mask_list = []
         self.model = tf.keras.models.load_model(model_path)
         self.test_images = self.image_list.copy()
         self.test_masks = [self.model.predict(image[tf.newaxis, ...], verbose=0)[0] for image in self.test_images]
         self.test_masks = [(self.test_masks[i] > 0.3).astype(np.uint8) for i in range(len(self.test_masks))]
         self.test_masks = [cv2.normalize(mask, None, 0, 255, cv2.NORM_MINMAX) for mask in self.test_masks]
+
+    # def inference_pytorch(self, model_path):
+    #     self.mask_list = []
+    #     self.model = torch.load(model_path)
+    #     self.model.eval()
+    #     self.test_images = [transform(image) for image in self.image_list]
+    #     self.test_masks = [self.model(image.unsqueeze(0)) for image in self.test_images]
+    #     self.test_masks = [(self.test_masks[i] > 0.3).astype(np.uint8) for i in range(len(self.test_masks))]
+    #     self.test_masks = [cv2.normalize(mask, None, 0, 255, cv2.NORM_MINMAX) for mask in self.test_masks]
+    
         
     def augmentation(self, padding, fade, flaw_type, sigma, points, normalize, CT_margin, try_count, strength):
         self.augmented_image_list = []
