@@ -7,8 +7,19 @@ from modules.preprocess.preprocessing import *
 ## Inference Image
 
 """
-image_category = natsorted(os.listdir("/app/temp/image"))
-model_list = natsorted(os.listdir("/app/models"))
+image_list = os.listdir("/app/temp/image")
+if len(image_list) == 0:
+    raise FileNotFoundError("업로드된 이미지가 없습니다.")
+image_category = natsorted(image_list)
+
+model_list = os.listdir("/app/models")
+if len(model_list) == 0:
+    raise FileNotFoundError("학습된 모델이 없습니다.")
+model_list = natsorted(model_list)
+
+
+
+
 col1, col2, col3 = st.columns([1, 1, 1])
 image_category = col1.selectbox("Select Image Category", options=image_category)
 preprocess = col1.selectbox("Select Preprocess", options=["None", "Normalize", "CLAHE", "EqualizeHist"])

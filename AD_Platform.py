@@ -1,10 +1,13 @@
 import streamlit as st
 from modules import config
+import os
 
 
 
 if __name__ == "__main__":
     config.set_config()
+    os.makedirs("/app/temp/image", exist_ok=True)
+    os.makedirs("/app/models", exist_ok=True)
 
 """
 # 2023 DaiS Lab BTS 실전문제연구팀 프로젝트
