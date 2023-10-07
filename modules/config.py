@@ -22,6 +22,10 @@ def state_init():
         st.session_state.strength = ""
     if "aug_params" not in st.session_state:
         st.session_state.aug_params = ""
+    if "model" not in st.session_state:
+        st.session_state.model = ""
+    if "eval_data" not in st.session_state:
+        st.session_state.eval_data = ""
 def set_config():
     """
     Streamlit 기본 설정.

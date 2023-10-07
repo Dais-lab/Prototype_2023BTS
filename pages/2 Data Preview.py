@@ -6,6 +6,8 @@ from modules.preprocess.preprocessing import *
 """
 ## Image Preview
 
+#### 10개의 이미지를 미리보기 합니다.
+
 """
 image_list = os.listdir("/app/temp/image")
 if len(image_list) == 0:
@@ -20,7 +22,7 @@ preprocess = col2.selectbox("Select Preprocess", options=["None", "Normalize", "
 IMAGE.preprocess(preprocess)
 
 IMAGE.find_IQI()
-for i in range(len(IMAGE)):
+for i in range(10):
     col1,col2,col3= st.columns([1, 1, 3])
     col1.image(IMAGE[i], width=400)
     col3.write(IMAGE.image_path_list[i].split("/")[-1])

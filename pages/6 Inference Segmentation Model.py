@@ -3,7 +3,11 @@ import os
 import torch
 from natsort import natsorted
 from modules.preprocess.preprocessing import *
-
+import sys
+"""
+## Inference Segmentation Model
+"""
+message = st.empty()
 image_list = os.listdir("/app/temp/image")
 image_list = image_list[:5]
 
@@ -25,27 +29,30 @@ select_inference_type = col1.selectbox("Select_inference_type", options=["infere
 if select_inference_type == "inference_tensor":
     inference_button = col1.button("Inference_tensor")
     if inference_button:
+        message.info("Load Images...")
         IMAGE = ImageContainer("/app/temp/image/" + image_category)
         IMAGE.preprocess(preprocess)
         for i in range(len(IMAGE)):
             col2.image(IMAGE[i])
-        
+        message.info("Inference...")
         IMAGE.inference_tensorflow("/app/models/" + model)
         for i in range(len(IMAGE)):
             col3.image(IMAGE.test_masks[i])
+        message.success("Inference Done!")
 
 elif select_inference_type == "inference_torch":
     inference_button = col1.button("Inference_torch")
     if inference_button:
+        message.info("Load Images...")
         IMAGE = ImageContainer("/app/temp/image/" + image_category)
         IMAGE.preprocess(preprocess)
         for i in range(len(IMAGE)):
             col2.image(IMAGE[i])
-        
+        message.info("Inference...")
         IMAGE.inference_pytorch("/app/models/" + model)
         for i in range(len(IMAGE)):
             col3.image(IMAGE.test_masks[i])
-
+        message.success("Inference Done!")
 
 
 
