@@ -5,7 +5,7 @@ from glob import glob
 from natsort import natsorted
 import os
 #CPU 사용
-os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+#os.environ["CUDA_VISIBLE_DEVICES"]="-1"
 import tensorflow as tf
 
 def check_IQI(image):
