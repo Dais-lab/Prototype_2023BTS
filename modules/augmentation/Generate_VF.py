@@ -9,15 +9,12 @@ from tqdm import tqdm
 import elasticdeform
 warnings.filterwarnings(action='ignore')
 
-def generate_virtual_flaw(image_path, padding, fade, flaw_type, sigma, points, normalize, seed, CT_margin):
+def generate_virtual_flaw(image_path, padding, fade, flaw_type, sigma, points, normalize, CT_margin, try_count, strength):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     PO_list = glob(os.path.join(current_dir, "Extracted_Flaw", "PO", "*.npy"))
     Scratch_list = glob(os.path.join(current_dir, "Extracted_Flaw", "Scratch", "*.npy"))
     Leftover_list = glob(os.path.join(current_dir, "Extracted_Flaw", "Leftover", "*.npy"))
     CT_list = glob(os.path.join(current_dir, "Extracted_Flaw", "CT", "*.npy"))
-    #seed fix
-    np.random.seed(seed)
-    random.seed(seed)
     image_name = image_path.split("/")[-1]
     image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE) # 이미지를 불러옴.
     image = np.float32(image) # 이미지를 float32로 변환. 결함을 합성할 때 정수가 아니라 실수로 계산하고 나중에 uint8로 변환함.
@@ -64,40 +61,39 @@ def generate_virtual_flaw(image_path, padding, fade, flaw_type, sigma, points, n
         #float32 
         flaw_image = flaw_image.astype(np.float32)
         y1, y2 = y1 + 1256, y2 + 1256
-        
-        save_path = save_path + "/" + flaw_type
-        os.makedirs(save_path + "/Accept", exist_ok=True)
-        os.makedirs(save_path + "/Reject", exist_ok=True)
-        os.makedirs(save_path + "/Diff", exist_ok=True)
+
         
         if flaw_type == "Random":
             flaw_type = np.random.choice(["IP", "PO", "CT", "Scratch", "Leftover"])
         
         if flaw_type == "IP":
             try:
-                random_flaw_x = np.random.randint(400, 700)
-                random_flaw = np.ones((4, random_flaw_x)) * 0.6
-                noise = np.random.normal(loc=0.29, scale=0.3, size=(4, random_flaw_x))
-                random_flaw = random_flaw + noise
-            
+                for _ in range(try_count):
+                    random_flaw_x = np.random.randint(400, 700)
+                    random_flaw = np.ones((4, random_flaw_x)) * 0.6
+                    noise = np.random.normal(loc=0.29, scale=0.3, size=(4, random_flaw_x))
+                    random_flaw = random_flaw + noise
                 
-                #image의 랜덤한 위치에 IP를 넣는다.
-                x = np.random.randint(0, image.shape[1] - random_flaw.shape[1])
-                y = int(np.random.normal((y1 + y2) / 2, 20))
-                
-                flaw_image[y:y+random_flaw.shape[0], x:x+random_flaw.shape[1]] += random_flaw 
-                flaw_image = flaw_image[1256:1256*2, :]
-                flaw_image = np.multiply(flaw_image, PO_IP_mask_image)
+                    random_flaw = elasticdeform.deform_random_grid(random_flaw, sigma=sigma, points=points, order=1)
+                    random_flaw = random_flaw * float(strength)
+                    #image의 랜덤한 위치에 IP를 넣는다.
+                    x = np.random.randint(0, image.shape[1] - random_flaw.shape[1])
+                    y = int(np.random.normal((y1 + y2) / 2, 20))
+                    
+                    flaw_image[y:y+random_flaw.shape[0], x:x+random_flaw.shape[1]] += random_flaw 
+                    flaw_image = flaw_image[1256:1256*2, :]
+                    flaw_image = np.multiply(flaw_image, PO_IP_mask_image)
             except Exception as e:
                 print(e)
            
         elif flaw_type == "PO":
-            random_try = np.random.randint(1, 2)
+            random_try = np.random.randint(1, try_count)
             for _ in range(random_try):
                 random_flaw = np.random.choice(PO_list)
                 random_flaw = np.load(random_flaw)
                 random_flaw = np.asarray(random_flaw, dtype=np.float32)
                 random_flaw = elasticdeform.deform_random_grid(random_flaw, sigma=sigma, points=points, order=1)
+                random_flaw = random_flaw * float(strength)
                 #flaw_image의 랜덤한 위치에 random_flaw를 넣기
                 x = np.random.randint(0, image.shape[1] - random_flaw.shape[1])
                 y = np.random.randint(y1, y2 - random_flaw.shape[0])
@@ -120,13 +116,13 @@ def generate_virtual_flaw(image_path, padding, fade, flaw_type, sigma, points, n
             #flaw_image의 랜덤한 위치에 random_flaw를 넣기
             x = np.random.randint(0, image.shape[1] - random_flaw.shape[1])
             y = np.random.randint(y1-random_flaw.shape[0], y2)
-            flaw_image[y:y+random_flaw.shape[0], x:x+random_flaw.shape[1]] += random_flaw * 1
+            flaw_image[y:y+random_flaw.shape[0], x:x+random_flaw.shape[1]] += random_flaw * float(strength)
                 
             flaw_image = flaw_image[1256:1256*2, :]
             flaw_image = np.multiply(flaw_image, CT_mask_image)
                 
         elif flaw_type == "Scratch":
-            random_try = np.random.randint(2, 3)
+            random_try = np.random.randint(1, try_count)
             for _ in range(random_try):
                 random_flaw = np.random.choice(Scratch_list)
                 random_flaw = np.load(random_flaw)
@@ -138,16 +134,16 @@ def generate_virtual_flaw(image_path, padding, fade, flaw_type, sigma, points, n
                 y_bottom = np.random.randint(y1 - 100, y1 )
                 y = np.random.choice([y_top, y_bottom])
                 if y == y_bottom:
-                    flaw_image[y-random_flaw.shape[0]:y, x:x+random_flaw.shape[1]] += random_flaw * 0.5
+                    flaw_image[y-random_flaw.shape[0]:y, x:x+random_flaw.shape[1]] += random_flaw * float(strength) * 0.5
                     
                 elif y == y_top:
-                    flaw_image[y:y+random_flaw.shape[0], x:x+random_flaw.shape[1]] += random_flaw * 0.5
+                    flaw_image[y:y+random_flaw.shape[0], x:x+random_flaw.shape[1]] += random_flaw * float(strength) * 0.5
                 
             flaw_image = flaw_image[1256:1256*2, :]
             flaw_image = np.multiply(flaw_image, Scratch_Leftover_mask_image)
             
         elif flaw_type == "Leftover":
-            random_try = np.random.randint(3, 4)
+            random_try = np.random.randint(1, try_count)
             for _ in range(random_try):
                 random_flaw = np.random.choice(Leftover_list)
                 random_flaw = np.load(random_flaw)
@@ -159,9 +155,9 @@ def generate_virtual_flaw(image_path, padding, fade, flaw_type, sigma, points, n
                 y_bottom = np.random.randint(y1 - 600, y1 )
                 y = np.random.choice([y_top, y_bottom])
                 if y == y_bottom:
-                    flaw_image[y-random_flaw.shape[0]:y, x:x+random_flaw.shape[1]] += random_flaw * 1
+                    flaw_image[y-random_flaw.shape[0]:y, x:x+random_flaw.shape[1]] += random_flaw * float(strength)
                 elif y == y_top:
-                    flaw_image[y:y+random_flaw.shape[0], x:x+random_flaw.shape[1]] += random_flaw * 1
+                    flaw_image[y:y+random_flaw.shape[0], x:x+random_flaw.shape[1]] += random_flaw * float(strength)
             
             flaw_image = flaw_image[1256:1256*2, :]
             flaw_image = np.multiply(flaw_image, Scratch_Leftover_mask_image)
@@ -172,9 +168,10 @@ def generate_virtual_flaw(image_path, padding, fade, flaw_type, sigma, points, n
             image = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
             origin_image = cv2.normalize(origin_image, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
 
-        return image, origin_image, diff
+        return image, diff
 
     except Exception as e:
         print(e)
-        return None, None, None
+        image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        return image, np.zeros_like(image)
         

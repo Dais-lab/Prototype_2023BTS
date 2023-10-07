@@ -7,6 +7,7 @@ import os
 #CPU 사용
 #os.environ["CUDA_VISIBLE_DEVICES"]="-1"
 import tensorflow as tf
+from modules.augmentation.Generate_VF import *
 
 def check_IQI(image):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -117,6 +118,25 @@ class ImageContainer:
         self.test_masks = [self.model.predict(image[tf.newaxis, ...], verbose=0)[0] for image in self.test_images]
         self.test_masks = [(self.test_masks[i] > 0.3).astype(np.uint8) for i in range(len(self.test_masks))]
         self.test_masks = [cv2.normalize(mask, None, 0, 255, cv2.NORM_MINMAX) for mask in self.test_masks]
+        
+    def augmentation(self, padding, fade, flaw_type, sigma, points, normalize, CT_margin, try_count, strength):
+        self.augmented_image_list = []
+        self.augmented_mask_list = []
+        for image in self.image_path_list:
+            augmented_image, augmented_mask = generate_virtual_flaw(
+                image,
+                flaw_type=flaw_type,
+                padding=padding,
+                fade=fade,
+                CT_margin=CT_margin,
+                sigma=sigma,
+                points=points,
+                normalize=normalize,
+                try_count=try_count,
+                strength=strength
+            )
+            self.augmented_image_list.append(augmented_image)
+            self.augmented_mask_list.append(augmented_mask)
         
         
         

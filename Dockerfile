@@ -8,7 +8,8 @@ RUN apt-get update && apt-get install -y \
     libgl1-mesa-glx \
     libcairo2-dev \
     pkg-config \
-    python3-dev
+    python3-dev \
+    zip
 ENV TZ Asia/Seoul
 RUN git clone https://github.com/LHyunn/2023BTS .
 RUN pip3 install --upgrade pip
