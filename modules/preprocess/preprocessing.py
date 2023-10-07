@@ -1,56 +1,125 @@
 import cv2
 import imgaug.augmenters as iaa
 import numpy as np
+from glob import glob
+from natsort import natsorted
+import os
+#CPU 사용
+os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+import tensorflow as tf
+
+def check_IQI(image):
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    sobel_x = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=21)
+    kernel1 = np.ones((5,1), np.uint8)
+    kernel2 = np.ones((1,5), np.uint8)
 
 
-def preprocess_img(img, preprocessing, target_size):
-    if preprocessing == 'median_blur':
-        img = cv2.medianBlur(img, ksize = 3)
-    elif preprocessing == 'noise_drop':
-        img = iaa.Dropout(p=(0, 0.2))(images = img).astype("uint8")
-    elif preprocessing == 'his_equalized':
-        img = cv2.equalizeHist(img)
-    elif preprocessing == 'sobel_masking_y':
-        img = cv2.Sobel(img, -1, 0, 1, delta = 128)
-    elif preprocessing == 'scharr':
-        img = cv2.Scharr(img, -1, 0, 1, delta=128)
-    elif preprocessing == 'clahe':
-        img = cv2.convertScaleAbs(img)
-        clahe = cv2.createCLAHE(clipLimit=1.0, tileGridSize=(3,3))
-        img = clahe.apply(img)
-    elif preprocessing == 'normalization':
-        img = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX)
-    else:
-        img = img
-    return img
+    # 그라디언트 크기 계산
+    gradient_magnitude = np.sqrt(sobel_x ** 2 + sobel_x ** 2)
 
-def get_weld_image(img, padding = 10):
-    """용접 이미지에서 용접 부위만 잘라내는 함수
-    
-    Args:
-        img (np.array): 용접 이미지
-        padding (int, optional): 용접 부위 패딩. Defaults to 10.
+    # 경계를 0과 1로 이루어진 이진 마스크로 변환
+    binary_mask = np.uint8(gradient_magnitude > np.percentile(gradient_magnitude, 93))
 
-    Returns:
-        dst: 용접 부위만 잘라낸 이미지, 여백 부분은 255로 채움
-    """
-    # 이미지를 읽어 spatial_normalization 후 resize, rotate.
-    img = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX)
-    image = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
-    image = np.array(image, dtype=np.float32)
-    
-    # 이미지의 x축을 기준으로 평균값을 구함
-    mean_list = []
-    for i in range(img.shape[0]):
-        mean_list.append(np.mean(image[:,i]))
+    #팽창
+    binary_mask = cv2.dilate(binary_mask, kernel2, iterations=3)
+
+    #특정 크기 이하의 덩어리를 제거
+    contours, hierarchy = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    for cnt in contours:
+        if cv2.contourArea(cnt) < 3000:
+            cv2.drawContours(binary_mask, [cnt], -1, 0, -1)
+
+
+    #침식
+    binary_mask = cv2.erode(binary_mask, kernel2, iterations=3)
+    binary_mask = cv2.erode(binary_mask, kernel1, iterations=1)
+
+    #특정 크기 이하의 덩어리를 제거
+    contours, hierarchy = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    for cnt in contours:
+        if cv2.contourArea(cnt) < 1000:
+            cv2.drawContours(binary_mask, [cnt], -1, 0, -1)
+
+    binary_mask = cv2.dilate(binary_mask, kernel1, iterations=2)
+    binary_mask = cv2.dilate(binary_mask, kernel2, iterations=2)
+
+    contours, hierarchy = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    return len(contours)
+
+def find_IQI(image_list):
+    check_IQI_list = []
+    found_iqi_break = False
+    for i in range(len(image_list)):
+        image = image_list[i]
+        if check_IQI(image) <= 1:
+            image = image_list[i+1]
+            if check_IQI(image) <= 1:
+                check_IQI_list.append(i-1)
+                found_iqi_break = True
+                break
+    if found_iqi_break:
+        for i in range(len(image_list)-1, 0, -1):
+            image = image_list[i]
+
+            if check_IQI(image) <= 1:
+                image = image_list[i-1]
+                if check_IQI(image) <= 1:
+                    check_IQI_list.append(i+1)
+                    break
+
+    return check_IQI_list
+
+
+class ImageContainer:
+    def __init__(self, image_path):
+        self.image_path_list = natsorted(glob(os.path.join(image_path, "*")))
+        self.image_list = [cv2.imread(image_path) for image_path in self.image_path_list]
+        self.image_list = [cv2.resize(image, (512, 512)) for image in self.image_list]
+        #self.image_list = [cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE) for image in self.image_list]
         
-    # 평균값의 gradient를 구함
-    image = np.gradient(np.squeeze(mean_list))
-    y1, y2 = img.shape[0] - int(np.argmax(image)) - padding, img.shape[0] - int(np.argmin(image)) + padding
-    # 용접 부위를 잘라냄
-    result = img[y1:y2, :]
+    def find_IQI(self):
+        self.IQI_list = find_IQI(self.image_list)
+        
+    def __len__(self):
+        return len(self.image_list)
     
-    dst = 255 * np.ones((img.shape[0], img.shape[1]), dtype=np.uint8)
-    dst[int((img.shape[0] - result.shape[0]) / 2):int((img.shape[0] + result.shape[0]) / 2), :] = result
-
-    return dst
+    def __getitem__(self, idx):
+        image = self.image_list[idx]
+        return image
+    
+    def __iter__(self):
+        for image in self.image_list:
+            yield image
+            
+    def __repr__(self):
+        return f"ImageContainer(image_path={self.image_list})"
+    
+    def __str__(self):
+        return f"ImageContainer(image_path={self.image_list})"
+    
+    def __add__(self, other):
+        return ImageContainer(self.image_list + other.image_list)
+    
+    def preprocess(self, preprocess):
+        if preprocess == "Normalize":
+            self.image_list = [cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX) for image in self.image_list]
+        elif preprocess == "CLAHE":
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+            self.image_list = [clahe.apply(image) for image in self.image_list]
+        elif preprocess == "EqualizeHist":
+            self.image_list = [cv2.equalizeHist(image) for image in self.image_list]
+  
+    def inference(self, model_path):
+        self.mask_list = []
+        self.model = tf.keras.models.load_model(model_path)
+        self.test_images = self.image_list.copy()
+        self.test_masks = [self.model.predict(image[tf.newaxis, ...], verbose=0)[0] for image in self.test_images]
+        self.test_masks = [(self.test_masks[i] > 0.3).astype(np.uint8) for i in range(len(self.test_masks))]
+        self.test_masks = [cv2.normalize(mask, None, 0, 255, cv2.NORM_MINMAX) for mask in self.test_masks]
+        
+        
+        
+        
+        
+        
