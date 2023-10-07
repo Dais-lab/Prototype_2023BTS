@@ -1,0 +1,32 @@
+{
+    "DATE": "",
+    "MEMO": "",
+    "MODE": "",
+    "OPTIMIZER": "Adam",
+    "MODEL_PATH": "",
+    "TARGET_SIZE": [
+        0,
+        0,
+        0
+    ],
+    "EPOCHS": 0,
+    "LOG_DIR": "",
+    "NOTION_DATABASE_ID_FS": "",
+    "NOTION_KEY": "",
+    "TENSORBOARD_LOG_DIR": "",
+    "REPREDICT": "Y",
+    "THRESHOLD": 0,
+    "SAVE_FALSE_IMAGE": "Y",
+    "MODEL_TYPE": "",
+    "DATA_TYPE": "",
+    "LOSS_FUNC": "",
+    "BATCH_SIZE": 0,
+    "TRAIN_DATA_PATH": "",
+    "TEST_DATA_PATH": "",
+    "LEARNING_RATE": 0,
+    "PATIENCE": 0,
+    "WEIGHT": {
+        "0": 1,
+        "1": 1
+    }
+}

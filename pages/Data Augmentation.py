@@ -88,6 +88,7 @@ if val == "2":
             cv2.imwrite(f"/app/temp/image/{image_category}_augmented/{images[i]}", IMAGE.augmented_image_list[i])
             cv2.imwrite(f"/app/temp/image/{image_category}_augmented/{images[i][:-4]}_mask.png", IMAGE.augmented_mask_list[i])
         message.info("Preparing for download...")
+        os.makedirs(f"/app/temp/download", exist_ok=True)
         zip_file = zipfile.ZipFile(f"/app/temp/download/{image_category}_augmented.zip", "w")
         for root, dirs, files in os.walk(f"/app/temp/image/{image_category}_augmented"):
             for file in files:

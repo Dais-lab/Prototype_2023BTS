@@ -75,7 +75,7 @@ def find_IQI(image_list):
 
 class ImageContainer:
     def __init__(self, image_path):
-        self.image_path_list = natsorted(glob(os.path.join(image_path, "*")))[:5]
+        self.image_path_list = natsorted(glob(os.path.join(image_path, "*")))
         self.image_list = [cv2.imread(image_path) for image_path in self.image_path_list]
         self.image_list = [cv2.resize(image, (512, 512)) for image in self.image_list]
         #self.image_list = [cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE) for image in self.image_list]
