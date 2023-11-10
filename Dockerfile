@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     zip
 ENV TZ Asia/Seoul
-RUN git clone https://github.com/LHyunn/2023BTS .
+RUN git clone https://github.com/Dais-lab/Prototype_2023BTS .
 RUN pip3 install --upgrade pip
 RUN pip3 install -r requirements.txt
 EXPOSE 8888
